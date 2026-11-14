@@ -99,7 +99,9 @@ def script(messages, body=None):
         mm = _re.search(r"`([^`]+)`", u)
         return ("tool", "run_command", {"command": mm.group(1) if mm else "echo verify-ok"})
     if "大输出" in u:        # 一条命令产生远超单次上限的输出（约 100K 字符）
-        return ("tool", "run_command", {"command": "python3 -c \"for i in range(4000): print('row', i, 'payload-' + str(i * 7))\""})
+        exe = f'& "{sys.executable}"' if os.name == "nt" else f'"{sys.executable}"'
+        cmd = f'{exe} -c "for i in range(4000): print(\'row\', i, \'payload-\' + str(i * 7))"'
+        return ("tool", "run_command", {"command": cmd})
     if "取回" in u:          # 从历史里找出输出句柄，并用关键词取回其中的一行
         import re as _re
         found = None
@@ -134,7 +136,7 @@ def script(messages, body=None):
     if "删除" in u:
         return ("tool", "delete_path", {"path": "notes/hello.txt"})
     if "命令" in u:
-        return ("tool", "run_command", {"command": "echo mock-ok > mock_out.txt && cat mock_out.txt"})
+        return ("tool", "run_command", {"command": "echo mock-ok > mock_out.txt; cat mock_out.txt"})
     if "危险" in u:
         return ("tool", "run_command", {"command": "rm -rf /"})
     if "越权" in u:

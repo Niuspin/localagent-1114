@@ -69,7 +69,8 @@ def test_store_readonly_paths_rules(tmp_path):
 def test_store_env_masking_and_persistence(tmp_path):
     st = McpStore(tmp_path / "mcp.json", tmp_path)
     st.upsert("a", {"command": "x", "env": {"TOKEN": "s3cret"}})
-    assert oct(os.stat(tmp_path / "mcp.json").st_mode & 0o777) == "0o600"
+    if os.name != "nt":  # Windows 的 chmod 只映射只读位，无法表达 0600
+        assert oct(os.stat(tmp_path / "mcp.json").st_mode & 0o777) == "0o600"
     c, _ = st.upsert("a", {"env": {"TOKEN": None, "OTHER": "v"}})          # null = 沿用
     assert c.env == {"TOKEN": "s3cret", "OTHER": "v"}
     c, _ = st.upsert("a", {"env": {"OTHER": "v"}})                          # 缺失 = 删除
@@ -166,7 +167,8 @@ def test_manager_lifecycle_and_bridge(mgr):
     assert not r.error and "echo:hi" in r.content and r.taint
     r = run(TOOLS["mcp__mock__whoami"].fn(C(), {}))
     info = json.loads(r.content)
-    assert info["custom"] == "hello" and not info["has_secret"] and info["cwd"].endswith("/mcp/mock") and info["home"].endswith("/mcp/mock/home")
+    cwd, home = info["cwd"].replace("\\", "/"), info["home"].replace("\\", "/")
+    assert info["custom"] == "hello" and not info["has_secret"] and cwd.endswith("/mcp/mock") and home.endswith("/mcp/mock/home")
     # 缓存：新管理器不用启动进程就能看到工具
     m2 = McpManager(mgr.data_dir, None)
     assert "mcp__mock__echo" in TOOLS and [t["tool"] for t in m2._tools["mock"]][:1] == ["echo"]

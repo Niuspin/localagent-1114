@@ -9,7 +9,7 @@ import pytest
 
 from lagent import context as C
 from lagent import net, security as sec
-from lagent.config import Config
+from lagent.config import Config, DEFAULTS
 from lagent.journal import Journal
 from lagent.memory import Memory
 from lagent.skills import Skills
@@ -21,8 +21,11 @@ from lagent.tools.search import fuse, _bing_url, _norm_url
 def test_pathguard_blocks_escape_and_symlink(tmp_path):
     ws = tmp_path / "ws"; ws.mkdir()
     outside = tmp_path / "secret.txt"; outside.write_text("x")
-    (ws / "link").symlink_to(outside)
-    (ws / "dirlink").symlink_to(tmp_path)
+    try:
+        (ws / "link").symlink_to(outside)
+        (ws / "dirlink").symlink_to(tmp_path)
+    except (OSError, NotImplementedError):
+        pytest.skip("当前系统不允许创建符号链接（Windows 需要开发者模式或管理员权限）")
     g = sec.PathGuard(ws)
     for bad in ["../secret.txt", str(outside), "link", "dirlink/secret.txt", "a/../../secret.txt", "", "a\x00b"]:
         with pytest.raises(sec.SecurityError):
@@ -170,7 +173,7 @@ def test_audit_chain(tmp_path):
     assert a.verify() == {"ok": True, "count": 5}
     a2 = sec.AuditLog(tmp_path / "a.jsonl"); a2.append(event="y")
     assert a2.verify()["count"] == 6
-    lines = (tmp_path / "a.jsonl").read_text().splitlines()
+    lines = (tmp_path / "a.jsonl").read_text("utf-8").splitlines()
     d = json.loads(lines[2]); d["i"] = 99
     lines[2] = json.dumps(d)
     (tmp_path / "a.jsonl").write_text("\n".join(lines) + "\n")
@@ -208,6 +211,11 @@ def test_coerce_args():
 
 
 # ---------------------------------------------------------------- 配置
+def test_config_example_matches_defaults():
+    p = Path(__file__).resolve().parent.parent / "config.example.json"
+    assert json.loads(p.read_text("utf-8")) == DEFAULTS
+
+
 def test_config_validation_and_secrets(tmp_path):
     c = Config(tmp_path / "c.json", tmp_path / "s.json")
     c.patch({"generation": {"temperature": 5}})
@@ -220,8 +228,9 @@ def test_config_validation_and_secrets(tmp_path):
     c.patch({"search": {"keys": {"brave": "SECRET123"}}})
     assert c.public()["search"]["keys"]["brave"] is True
     assert "SECRET123" not in json.dumps(c.public())
-    assert "SECRET123" not in (tmp_path / "c.json").read_text()
-    assert oct((tmp_path / "s.json").stat().st_mode & 0o777) == "0o600"
+    assert "SECRET123" not in (tmp_path / "c.json").read_text("utf-8")
+    if os.name != "nt":  # Windows 的 chmod 只映射只读位，无法表达 0600
+        assert oct((tmp_path / "s.json").stat().st_mode & 0o777) == "0o600"
     c2 = Config(tmp_path / "c.json", tmp_path / "s.json")
     assert c2.secret("brave") == "SECRET123"
     c.patch({"search": {"keys": {"brave": ""}}})

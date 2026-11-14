@@ -82,7 +82,7 @@ def test_read_before_edit_enforced(tmp_path):
     assert "被改动" in pre(ctx, {"path": "a.txt"})
     run(files.read_file(ctx, {"path": "a.txt"}))
     r = run(files.edit_file(ctx, {"path": "a.txt", "old_string": "x = 2", "new_string": "x = 3"}))
-    assert not r.error and f.read_text() == "x = 3\n"
+    assert not r.error and f.read_text("utf-8") == "x = 3\n"
     assert pre(ctx, {"path": "a.txt"}) is None                         # 自己刚写过：不必再读
     r = run(files.write_file(ctx, {"path": "a.txt", "content": "y\n"}))
     assert not r.error and pre(ctx, {"path": "a.txt"}) is None
@@ -237,7 +237,10 @@ def test_projectdoc_ignores_symlink(tmp_path):
     ws.mkdir()
     secret = tmp_path / "secret.md"
     secret.write_text("TOPSECRET", "utf-8")
-    (ws / "AGENTS.md").symlink_to(secret)
+    try:
+        (ws / "AGENTS.md").symlink_to(secret)
+    except (OSError, NotImplementedError):
+        pytest.skip("当前系统不允许创建符号链接（Windows 需要开发者模式或管理员权限）")
     assert projectdoc.load(ws) is None
 
 

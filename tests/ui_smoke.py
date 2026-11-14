@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tests"))
 import make_gguf  # noqa: E402
-from conftest import free_port  # noqa: E402
+from conftest import free_port, install_mock_binary  # noqa: E402
 
 try:
     from playwright.sync_api import sync_playwright
@@ -40,9 +40,7 @@ home = Path(tempfile.mkdtemp(prefix="la-ui-"))
 (home / "models").mkdir()
 make_gguf.make(home / "models" / "Mock-MoE-A1B-Q4_K_M.gguf")
 make_gguf.make(home / "models" / "mmproj-Mock-MoE-A1B-F16.gguf", arch="clip", experts=0, layers=2, name="mmproj")
-(home / "bin").mkdir()
-shutil.copy(ROOT / "tests" / "mock_llama_server.py", home / "bin" / "llama-server")
-os.chmod(home / "bin" / "llama-server", 0o755)
+install_mock_binary(home)
 (home / "ws").mkdir()
 (home / "ws" / "notes.md").write_text("# 笔记\n\n你好 **世界**\n", "utf-8")
 

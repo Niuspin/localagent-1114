@@ -576,7 +576,8 @@ class AuditLog:
 
     def tail(self, n: int = 200) -> list[dict]:
         try:
-            lines = self.path.read_text("utf-8").splitlines()[-n:]
+            # 用 replace 容错：并发追加时可能读到半条 UTF-8 记录；损坏的末行会被下面的 JSON 解析跳过
+            lines = self.path.read_bytes().decode("utf-8", "replace").splitlines()[-n:]
         except OSError:
             return []
         out = []

@@ -1,15 +1,39 @@
+# ---- Python ----
 .venv/
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---- 本地数据与用户配置（不要提交）----
 data/
 config.json
+*.local.json
+
+# ---- 模型与 llama.cpp 二进制 ----
 models/*
 !models/.gitkeep
 bin/*
 !bin/.gitkeep
 skills/*
 !skills/.gitkeep
-.pytest_cache/
+
+# ---- 构建产物 ----
 build/
 dist/
 *.spec.bak
+
+# ---- 测试产物 ----
+shots/
+
+# ---- 操作系统 / 编辑器 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/

@@ -1,5 +1,8 @@
 # LocalAgent
 
+[![CI](https://github.com/Niuspin/localagent-1114/actions/workflows/ci.yml/badge.svg)](https://github.com/Niuspin/localagent-1114/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 本地 GGUF 模型 + llama.cpp 的**安全、简洁**的 Agent 框架。浏览器里的界面参照 Claude 的交互：对话、工具卡片、审批卡片、技能、记忆、工作区面板。
 全部数据留在本机；界面不加载任何外部资源（无 CDN、无字体、无统计），可完全离线运行。
 
@@ -8,12 +11,13 @@
 1. 安装 **Python 3.10+**。
 2. 把 llama.cpp 发行包（含 `llama-server`）解压到 `bin/`（任意子目录均可被找到），或确保 `llama-server` 在 PATH 中。
 3. 把 `.gguf` 模型放进 `models/`。多模态模型请把配套的 `mmproj-*.gguf` 放在同一目录（会自动配对）。
-4. 运行：
+4. 可选：复制 `config.example.json` 为 `config.json` 作为默认配置；不复制则使用内置默认值，在界面里改设置也会自动生成。
+5. 运行：
    - Linux / macOS：`./start.sh`
    - Windows：双击 `start.bat`
 
    首次运行会创建 `.venv` 并安装依赖。终端会打印 `http://127.0.0.1:8765/?t=<令牌>`，浏览器自动打开；令牌每次启动都会变。
-5. 在界面里 **选择工作区 → 加载模型**，开始对话。
+6. 在界面里 **选择工作区 → 加载模型**，开始对话。
 
 命令行参数：`python run.py [--port 8765] [--workspace DIR] [--no-browser] [--browser] [--load]`（`--load` 启动后直接加载上次的模型；`--browser` 用系统默认浏览器而不是应用窗口；`--no-browser` 纯服务模式）。
 
@@ -28,17 +32,22 @@ python packaging/build.py          # → dist/LocalAgent/LocalAgent.exe
 - 双击后在**独立应用窗口**里打开（用系统已有的 Edge / Chrome 应用模式，数据与日常浏览器隔离；都没有则退回默认浏览器）。**关闭窗口 = 退出应用并停止模型**；设置→关于里也有“退出应用”。
 - 数据目录：exe 所在目录；该目录不可写（如装在 Program Files）时改用 `%LOCALAPPDATA%\LocalAgent`；环境变量 `LAGENT_HOME` 可强制指定。无控制台，日志在 `data/logs/app.log`；启动失败会弹消息框。
 - 同一数据目录只允许一个实例，重复双击会提示而不是起两份。
-- `.github/workflows/ci.yml` 的 `build-exe` 任务会在 Windows 上构建并上传产物。注意：**exe 只能在 Windows 上构建**，本仓库的开发环境没有 Windows，打包流程尚未在真机验证（见“已知限制”）。
+- `.github/workflows/ci.yml` 的 `build-exe` 任务会在 Windows 上构建、做启动冒烟并上传产物。注意：**exe 只能在 Windows 上构建**；CI 能做基础验证，但完整交互仍需在真实 Windows 设备上确认（见“已知限制”）。
 
 ## 目录
 
 ```
-models/          你的 .gguf 与 mmproj（只读，Agent 无法修改）
-bin/             llama.cpp 可执行文件（只读）
-skills/          你安装/创建的技能（Agent 只能通过 create_skill 工具写，需审批）
-data/            会话、记忆库(SQLite)、审计日志、回收站、密钥——对 Agent 完全不可见
-config.json      设置（界面里改即可）
-lagent/          后端代码      web/  前端静态文件      docs/API.md  前后端接口契约
+models/              你的 .gguf 与 mmproj（只读，Agent 无法修改）
+bin/                 llama.cpp 可执行文件（只读）
+skills/              你安装/创建的技能（Agent 只能通过 create_skill 工具写，需审批）
+data/                会话、记忆库(SQLite)、审计日志、回收站、密钥——对 Agent 完全不可见
+config.json          本地设置（界面里改即可；不提交）
+config.example.json  可分享的默认配置示例
+lagent/              后端代码
+web/                 前端静态文件
+docs/API.md          前后端接口契约
+tests/               单元 + 端到端测试（假 llama-server / 假 MCP 服务器）
+AGENTS.md            面向 AI Agent 与贡献者的命令、目录和安全约定
 ```
 
 ## 功能
@@ -146,23 +155,37 @@ skills/my-skill/
 
 可在界面“技能”里安装 zip / 文件夹，或新建；也可直接让 Agent 用 `create_skill` 帮你起草（需审批）。
 
+## 开发与贡献
+
+- [`AGENTS.md`](AGENTS.md)：环境配置、运行/测试命令、目录和安全约定（AI Agent 与本仓库自身都会读取）。
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)：提交步骤与检查清单。
+- [`SECURITY.md`](SECURITY.md)：漏洞报告方式与安全边界。
+
+开发环境只需要 Python 3.10+，**不需要真实模型或 GPU**：
+
+```
+python -m venv .venv
+.venv/bin/python -m pip install -r requirements-dev.txt   # Windows: .venv\Scripts\python
+```
+
+也可以用 `.devcontainer/`（VS Code Dev Containers / GitHub Codespaces）自动安装依赖。
+
 ## 测试
 
 > 有真实 llama.cpp 与模型的机器上，请按 [docs/REAL_ENV_TEST.md](docs/REAL_ENV_TEST.md) 做真机验证。
 
 ```
-pip install -r requirements-dev.txt
 python -m pytest tests/ -q          # 单元 + 端到端（假 llama-server、mock MCP 服务器）
 python tests/ui_smoke.py [截图目录]   # 可选：Chromium 驱动完整界面（需 playwright install chromium）
 python tests/eval/run_eval.py --repeat 3   # 真实模型评测：通过率 + 摩擦指标（没有模型时自动跳过）
 ```
 
-GitHub Actions（`.github/workflows/ci.yml`）在 Python 3.10 / 3.12 上跑上面前两项，并在 Windows 上构建 exe。
+测试在 Linux、macOS 和 Windows 上均可运行；没有符号链接权限的 Windows 环境会自动跳过相关用例。GitHub Actions（`.github/workflows/ci.yml`）在 Ubuntu 的 Python 3.10 / 3.12 上跑 pytest 和 UI 冒烟（并执行评测脚本自检），并在 Windows 上构建 exe。
 
 ## 已知限制（如实说明）
 
 - 开发环境里**没有真实的 llama.cpp 与 GPU**：引擎路径用与 llama-server 行为对齐的假服务器测试。参数探测、`--fit`、MoE 拆分、mmproj 等在真实环境首次运行请观察“设置→日志”，必要时用“额外参数”微调。
-- **exe 打包与应用窗口**：打包配置、应用窗口、单实例锁、`LOCALAPPDATA` 回退都有单元测试，但**没有在 Windows 真机上构建/运行过**；`packaging/localagent.spec` 的隐式导入列表可能需要在首次构建后按报错补充。
+- **exe 打包与应用窗口**：打包配置、应用窗口、单实例锁、`LOCALAPPDATA` 回退都有单元测试，CI 会在 `windows-latest` 上构建并做 `--version` 启动冒烟；但尚未在真实 Windows 设备上做完整交互验证，`packaging/localagent.spec` 的隐式导入列表可能需要在首次构建后按报错补充。
 - **模型档位**阈值来自经验估算，没有在真实大模型（百亿以上）上实测调优；真实环境请对比“摩擦指标”后再调整。
 - **Windows / macOS** 的进程管理（Job Object）、沙箱（sandbox-exec）与路径规则按文档实现，但未在真机验证。
 - 免密钥搜索引擎的 HTML 解析仅用样本页面测试过，见上文。
@@ -172,4 +195,4 @@ GitHub Actions（`.github/workflows/ci.yml`）在 Python 3.10 / 3.12 上跑上�
 
 ## 许可证
 
-[MIT](../LICENSE) © 2026 Niuspin
+[MIT](LICENSE) © 2026 Niuspin

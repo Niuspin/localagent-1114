@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -29,7 +30,9 @@ def test_mcp_api_never_leaks_env_and_validates(ready, home):
     assert ready.post("/api/mcp/nope/start")[0] == 404
     # 配置文件在 data/ 下：权限 0600，Agent 的文件工具看不到
     p = home / "data" / "mcp.json"
-    assert oct(p.stat().st_mode & 0o777) == "0o600" and "TOPSECRET-VALUE" in p.read_text("utf-8")
+    assert "TOPSECRET-VALUE" in p.read_text("utf-8")
+    if os.name != "nt":  # Windows 的 chmod 只映射只读位，无法表达 0600
+        assert oct(p.stat().st_mode & 0o777) == "0o600"
 
 
 def test_mcp_tool_runs_through_agent_with_approval_and_taint(ready, home):

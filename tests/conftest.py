@@ -27,6 +27,28 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
+def install_mock_binary(home: Path) -> Path:
+    """在临时 LAGENT_HOME 里安装假 llama-server。
+
+    POSIX 直接放可执行的 shebang 脚本；Windows 不能直接执行无扩展名脚本，
+    所以生成一个 .cmd 包装，并在 config.json 里显式指定 engine.binary。
+    返回引擎应使用的可执行文件路径。
+    """
+    mock = ROOT / "tests" / "mock_llama_server.py"
+    bin_dir = home / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        exe = bin_dir / "llama-server.cmd"
+        exe.write_text(f'@echo off\r\n"{sys.executable}" "{mock}" %*\r\n', encoding="utf-8")
+        (home / "config.json").write_text(
+            json.dumps({"engine": {"binary": str(exe)}}, ensure_ascii=False), encoding="utf-8")
+        return exe
+    exe = bin_dir / "llama-server"
+    shutil.copy(mock, exe)
+    os.chmod(exe, 0o755)
+    return exe
+
+
 class Api:
     def __init__(self, port: int, token: str):
         self.port, self.token = port, token
@@ -113,9 +135,7 @@ def home(tmp_path_factory):
     (h / "models").mkdir()
     make_gguf.make(h / "models" / "Mock-MoE-A1B-Q4_K_M.gguf")
     make_gguf.make(h / "models" / "mmproj-Mock-MoE-A1B-F16.gguf", arch="clip", experts=0, layers=2, name="mmproj")
-    (h / "bin").mkdir()
-    shutil.copy(ROOT / "tests" / "mock_llama_server.py", h / "bin" / "llama-server")
-    os.chmod(h / "bin" / "llama-server", 0o755)
+    install_mock_binary(h)
     (h / "ws").mkdir()
     return h
 

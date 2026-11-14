@@ -133,12 +133,12 @@ def test_write_requires_approval_then_undo(ready, home):
     assert not f.exists() and ev(evs, "tool_result")[0]["status"] == "denied"
     evs = ready.chat(sid, "请创建文件", {"write_file": "allow"})
     r = ev(evs, "tool_result")[0]
-    assert r["status"] == "ok" and f.read_text() == "你好，世界\n第二行\n" and r["meta"]["undo_id"]
+    assert r["status"] == "ok" and f.read_text("utf-8") == "你好，世界\n第二行\n" and r["meta"]["undo_id"]
     evs = ready.chat(sid, "请编辑文件")
-    assert "改过的第二行" in f.read_text()
+    assert "改过的第二行" in f.read_text("utf-8")
     j = ready.get(f"/api/journal?session_id={sid}")[1]
     assert [e["op"] for e in j[:2]] == ["edit", "write"] and j[0]["can_undo"]
-    assert ready.post(f"/api/journal/{j[0]['id']}/undo")[0] == 200 and "第二行\n" in f.read_text() and "改过" not in f.read_text()
+    assert ready.post(f"/api/journal/{j[0]['id']}/undo")[0] == 200 and "第二行\n" in f.read_text("utf-8") and "改过" not in f.read_text("utf-8")
     assert ready.post(f"/api/journal/{j[0]['id']}/undo")[0] == 400  # 已撤销
     assert ready.post(f"/api/journal/{j[1]['id']}/undo")[0] == 200 and not f.exists()
 
@@ -151,7 +151,7 @@ def test_delete_goes_to_trash_and_restores(ready, home):
     assert ev(evs, "tool_result")[0]["status"] == "ok" and not f.exists()
     tr = ready.get("/api/trash")[1]
     assert tr and tr[0]["path"].endswith("hello.txt")
-    assert ready.post(f"/api/trash/{tr[0]['id']}/restore")[0] == 200 and f.read_text() == "keep me"
+    assert ready.post(f"/api/trash/{tr[0]['id']}/restore")[0] == 200 and f.read_text("utf-8") == "keep me"
 
 
 def test_auto_edit_skips_write_prompt_but_not_exec(ready, home):
@@ -345,7 +345,7 @@ def test_audit_log_and_verify(ready):
     assert {"run", "tool", "hard_deny", "denied", "taint"} <= kinds
     assert "你好，世界" not in json.dumps(ents, ensure_ascii=False)  # 文件内容不进审计日志
     p = ready.home / "data" / "audit.jsonl"
-    lines = p.read_text().splitlines()
+    lines = p.read_text("utf-8").splitlines()
     d = json.loads(lines[3]); d["event"] = "tampered"; lines[3] = json.dumps(d)
     p.write_text("\n".join(lines) + "\n")
     assert ready.get("/api/audit/verify")[1]["ok"] is False
