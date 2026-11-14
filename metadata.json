@@ -1,6 +1,0 @@
-{
-  "name": "Gossamer GGUF",
-  "description": "面向本地 GGUF 模型的轻量级 Agent 框架与自动化任务流编排工作台，支持模型元数据解析、运行时加载与多步有向无环图（DAG）执行。",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
